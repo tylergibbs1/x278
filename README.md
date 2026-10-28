@@ -7,14 +7,8 @@
 [![Effect TS](https://img.shields.io/badge/Effect-3.x-2F8F83.svg)](https://effect.website)
 
 TypeScript SDK and reference implementation for x278, Backwork's proposed
-agent-native protocol for prior authorization.
-
-x278 models prior authorization as a typed exchange between provider-side and
-payer-side software agents. A provider agent submits a structured request. A
-payer agent returns an actionable determination: `approved`, `denied`,
-`info-needed`, or `pended`. The provider agent can then attach evidence, wait for
-review, correct the request, or appeal without restarting the authorization
-context.
+agent-native protocol for prior authorization. Use it to build or test
+provider-side and payer-side prior authorization agents.
 
 This package is a protocol SDK and runnable reference environment. It is not a
 certified payer integration, a substitute for Da Vinci PAS conformance testing,
@@ -63,6 +57,46 @@ console.log(trace.final.authNumber);
 The same client loop also handles `pended` determinations by awaiting the
 returned subscription handle, and `denied` determinations by returning a coded
 reason plus appeal path.
+
+## Examples
+
+The repository includes runnable examples that use the same public package
+exports consumers install from npm. Run `bun install` in a clone first:
+
+| Command | What it shows |
+| --- | --- |
+| `bun run example:mock` | Full provider loop against the in-memory payer, including `info-needed`, `pended`, and `denied` paths |
+| `bun run example:conformance` | Running the conformance harness against a transport |
+| `bun run payer:http` + `bun run example:http` | HTTP client usage against the local reference payer |
+
+For the HTTP example, start the payer in one terminal:
+
+```bash
+bun run payer:http
+```
+
+Then run the client from another terminal:
+
+```bash
+bun run example:http
+```
+
+## How It Works
+
+x278 models prior authorization as a typed exchange between provider-side and
+payer-side software agents. A provider agent submits a structured request. A
+payer agent returns an actionable determination: `approved`, `denied`,
+`info-needed`, or `pended`. The provider agent can then attach evidence, wait for
+review, correct the request, or appeal without restarting the authorization
+context.
+
+| State | Meaning | Next action |
+| --- | --- | --- |
+| `approved` | Authorization approved by rules or reviewer | Use the returned authorization number and validity window |
+| `denied` | Request denied with coded reason and appeal path | Correct, resubmit, or appeal |
+| `info-needed` | Payer needs specific documentation | Attach evidence and resume the same `authId` |
+| `pended` | Request accepted but not final | Await the returned subscription/update handle |
+| `error` | Malformed or unprocessable exchange | Fix the request or contact the payer |
 
 ## HTTP Client
 
@@ -113,47 +147,6 @@ The HTTP client includes production-oriented defaults:
 For local parity, `createX278HttpClientFromEnv()` reads `X278_PAYER_URL` and
 `X278_BEARER_TOKEN`.
 
-## Protocol States
-
-| State | Meaning | Next action |
-| --- | --- | --- |
-| `approved` | Authorization approved by rules or reviewer | Use the returned authorization number and validity window |
-| `denied` | Request denied with coded reason and appeal path | Correct, resubmit, or appeal |
-| `info-needed` | Payer needs specific documentation | Attach evidence and resume the same `authId` |
-| `pended` | Request accepted but not final | Await the returned subscription/update handle |
-| `error` | Malformed or unprocessable exchange | Fix the request or contact the payer |
-
-## Public Exports
-
-| Import | Purpose |
-| --- | --- |
-| `@backwork/x278` | Full public SDK surface |
-| `@backwork/x278/http` | Fetch-backed HTTP client and transport |
-| `@backwork/x278/sdk` | Promise and Effect provider clients |
-| `@backwork/x278/conformance` | Conformance harness for x278 transports |
-| `@backwork/x278/types` | Protocol schemas, domain types, and typed errors |
-| `@backwork/x278/schemas` | Schema-focused alias for protocol validation |
-| `@backwork/x278/evidence` | DTR-style evidence and QuestionnaireResponse helpers |
-| `@backwork/x278/fhir-pas` | FHIR/PAS/DTR mapping helpers |
-| `@backwork/x278/policy` | Versioned executable policy adapter interface |
-| `@backwork/x278/signing` | Canonical hashing and signed receipt utilities |
-| `@backwork/x278/smart` | SMART Backend Services token provider utilities |
-| `@backwork/x278/subscriptions` | Local subscription/webhook broker helpers |
-| `@backwork/x278/payer-agent` | Reference payer agent service |
-| `@backwork/x278/provider-client` | Lower-level provider loop primitives |
-
-## Effect and Promise APIs
-
-x278 is implemented with Effect schemas and services internally, while exposing a
-Promise API for conventional TypeScript applications.
-
-- Use `createX278EffectClient` and `runX278ConformanceEffect` inside Effect
-  applications.
-- Use `createX278Client`, `createX278HttpClient`, and `runX278Conformance` in
-  Promise-based services.
-- API boundaries accept `unknown` where appropriate and validate into typed
-  protocol objects before transport use.
-
 ## Conformance
 
 Transport implementers can run the conformance harness against any x278 transport:
@@ -187,28 +180,67 @@ console.log(toConformanceMarkdown(report));
 console.log(toConformanceBadge(report));
 ```
 
-## Examples
+## Effect and Promise APIs
 
-The repository includes runnable examples that use the same public package
-exports consumers install from npm:
+x278 is implemented with Effect schemas and services internally, while exposing a
+Promise API for conventional TypeScript applications.
 
-| Command | What it shows |
+- Use `createX278EffectClient` and `runX278ConformanceEffect` inside Effect
+  applications.
+- Use `createX278Client`, `createX278HttpClient`, and `runX278Conformance` in
+  Promise-based services.
+- API boundaries accept `unknown` where appropriate and validate into typed
+  protocol objects before transport use.
+
+## Public Exports
+
+| Import | Purpose |
 | --- | --- |
-| `bun run example:mock` | Full provider loop against the in-memory payer, including `info-needed`, `pended`, and `denied` paths |
-| `bun run example:conformance` | Running the conformance harness against a transport |
-| `bun run payer:http` + `bun run example:http` | HTTP client usage against the local reference payer |
+| `@backwork/x278` | Full public SDK surface |
+| `@backwork/x278/http` | Fetch-backed HTTP client and transport |
+| `@backwork/x278/sdk` | Promise and Effect provider clients |
+| `@backwork/x278/conformance` | Conformance harness for x278 transports |
+| `@backwork/x278/types` | Protocol schemas, domain types, and typed errors |
+| `@backwork/x278/schemas` | Schema-focused alias for protocol validation |
+| `@backwork/x278/evidence` | DTR-style evidence and QuestionnaireResponse helpers |
+| `@backwork/x278/fhir-pas` | FHIR/PAS/DTR mapping helpers |
+| `@backwork/x278/policy` | Versioned executable policy adapter interface |
+| `@backwork/x278/signing` | Canonical hashing and signed receipt utilities |
+| `@backwork/x278/smart` | SMART Backend Services token provider utilities |
+| `@backwork/x278/subscriptions` | Local subscription/webhook broker helpers |
+| `@backwork/x278/payer-agent` | Reference payer agent service |
+| `@backwork/x278/provider-client` | Lower-level provider loop primitives |
 
-For the HTTP example, start the payer in one terminal:
+## Specification
 
-```bash
-bun run payer:http
-```
+- [Core x278 specification](specs/x278-specification-v0.md)
+- [HTTP transport](specs/transports/http.md)
+- [FHIR/PAS adapter expectations](specs/adapters/fhir-pas.md)
+- [Proof matrix](docs/conformance-matrix.md): whitepaper claims mapped to executable evidence
 
-Then run the client from another terminal:
+x278 is designed to interoperate with FHIR prior authorization infrastructure,
+including Da Vinci PAS, DTR, and CRD patterns, rather than replace those rails.
+Where X12 278/275 applies, production implementers still need the appropriate
+mapping, licensing, and trading-partner testing outside this SDK.
 
-```bash
-bun run example:http
-```
+## Status and Boundaries
+
+The repository currently includes:
+
+- protocol schemas and typed determination states
+- Promise and Effect SDK clients
+- production HTTP client and transport
+- deterministic reference payer agent
+- signed terminal determinations and audit records
+- FHIR/PAS mapping helpers
+- conformance and release proof harnesses
+- Docker-based realistic scenarios
+
+Before production healthcare use, organizations still need real payer endpoint
+registration, SMART Backend Services/OAuth configuration, PAS/FHIR conformance
+testing, HIPAA/security review, operational monitoring, and policy/legal review.
+
+This project is not affiliated with CMS, HL7, X12, or the Da Vinci Project.
 
 ## Local Development
 
@@ -234,35 +266,12 @@ Useful verification commands:
 Live agent tests require provider API keys in the environment. The normal test
 suite does not call paid model APIs.
 
-## Specification
+## Contributing
 
-- [Core x278 specification](specs/x278-specification-v0.md)
-- [HTTP transport](specs/transports/http.md)
-- [FHIR/PAS adapter expectations](specs/adapters/fhir-pas.md)
-
-x278 is designed to interoperate with FHIR prior authorization infrastructure,
-including Da Vinci PAS, DTR, and CRD patterns, rather than replace those rails.
-Where X12 278/275 applies, production implementers still need the appropriate
-mapping, licensing, and trading-partner testing outside this SDK.
-
-## Status and Boundaries
-
-The repository currently includes:
-
-- protocol schemas and typed determination states
-- Promise and Effect SDK clients
-- production HTTP client and transport
-- deterministic reference payer agent
-- signed terminal determinations and audit records
-- FHIR/PAS mapping helpers
-- conformance and release proof harnesses
-- Docker-based realistic scenarios
-
-Before production healthcare use, organizations still need real payer endpoint
-registration, SMART Backend Services/OAuth configuration, PAS/FHIR conformance
-testing, HIPAA/security review, operational monitoring, and policy/legal review.
-
-This project is not affiliated with CMS, HL7, X12, or the Da Vinci Project.
+See [CONTRIBUTING.md](CONTRIBUTING.md) for the contributor proof ladder (dogfood,
+prove, live tests), [SECURITY.md](SECURITY.md) for reporting issues and data
+handling rules, [ROADMAP.md](ROADMAP.md) for planned milestones, and
+[CHANGELOG.md](CHANGELOG.md) for release notes.
 
 ## License
 
